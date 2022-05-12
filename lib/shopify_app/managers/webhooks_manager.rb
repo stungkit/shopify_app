@@ -24,11 +24,11 @@ module ShopifyApp
         ShopifyAPI::Webhooks::Registry.register_all(session: session)
       end
 
-      def destroy_webhooks
+      def destroy_webhooks(session: session)
         return unless ShopifyApp.configuration.has_webhooks?
 
         ShopifyApp.configuration.webhooks.each do |attributes|
-          ShopifyAPI::Webhooks::Registry.unregister(topic: attributes[:topic])
+          ShopifyAPI::Webhooks::Registry.unregister(topic: attributes[:topic], session: session)
         end
       end
 
