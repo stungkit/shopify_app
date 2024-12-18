@@ -1,34 +1,231 @@
 Unreleased
 ----------
 
+22.5.1 (December 11, 2024)
+----------
+- Fix Rails [CVE-2024-54133](https://github.com/rails/rails/commit/3da2479cfe1e00177114b17e496213c40d286b3a) [1929](https://github.com/Shopify/shopify_app/pull/1929)
+
+22.5.0 (November 28, 2024)
+----------
+- Add support for filters in webhook registration [1923](https://github.com/Shopify/shopify_app/pull/1923)
+-  Make `ShopifyApp.configuration.scope` default to empty list `[]` [1913](https://github.com/Shopify/shopify_app/pull/1913)
+
+22.4.0 (August 22, 2024)
+----------
+- Add the `unified_admin_domain` configuration option for the unified admin domain.
+- Add new generators for webhook subscriptions defined in the `shopify.app.toml` file [1882](https://github.com/Shopify/shopify_app/pull/1882)
+- Fix test stubbing for Token Exchange auth [1897](https://github.com/Shopify/shopify_app/pull/1897)
+
+22.3.1 (July 26, 2024)
+----------
+- Handle edge case where we attempted to redirect to login when already at the top level [#1887](https://github.com/Shopify/shopify_app/pull/1887)
+
+22.3.0 (July 24, 2024)
+----------
+- Deprecate `ShopifyApp::JWTMiddleware`. And remove internal usage.  Any existing app code relying on decoded JWT contents set from `request.env` should instead include the `WithShopifyIdToken` concern and call its respective methods. [#1861](https://github.com/Shopify/shopify_app/pull/1861) [Migration Guide](/docs/Upgrading.md#v2300---removed-shopifyappjwtmiddleware)
+- Handle scenario when invalid URI is passed to `sanitize_shop_domain` [#1852](https://github.com/Shopify/shopify_app/pull/1852)
+- Remove references to old JS files during asset precompile [#1865](https://github.com/Shopify/shopify_app/pull/1865)
+- Remove old translation keys for `enable_cookies_*`, `top_level_interaction_*` and `request_storage_access_*` [#1865](https://github.com/Shopify/shopify_app/pull/1865)
+- Add invalid id token handling for `current_shopify_domain` method [#1868](https://github.com/Shopify/shopify_app/pull/1868)
+- Keep original path and params when redirecting deep links to embed [#1869](https://github.com/Shopify/shopify_app/pull/1869)
+- Fix managed install path for SPIN environments [#1877](https://github.com/Shopify/shopify_app/pull/1877)
+- Migrate fullpage redirect to App Bridge CDN [#1870](https://github.com/Shopify/shopify_app/pull/1870)
+- Improve embedded requests detection with `Sec-Fetch-Dest` header [#1873](https://github.com/Shopify/shopify_app/pull/1873)
+- Fix bug where locale is not read from session if locale param is not present in app request [#1878](https://github.com/Shopify/shopify_app/pull/1878)
+
+22.2.1 (May 6,2024)
+----------
+* Patch - Don't delete session on 401 errors during retry in `with_token_refetch` [#1844](https://github.com/Shopify/shopify_app/pull/1844)
+
+22.2.0 (May 2,2024)
+----------
+* Add new zero redirect authorization strategy - `Token Exchange`.
+  - This strategy replaces the existing OAuth flow for embedded apps and remove the redirects that were previously necessary to complete OAuth.
+  See ["New embedded app authorization strategy (Token Exchange)"](/README.md/#new-embedded-app-authorization-strategy-token-exchange) for how to enable this feature.
+  - Related PRs: [#1817](https://github.com/Shopify/shopify_app/pull/1817),
+  [#1818](https://github.com/Shopify/shopify_app/pull/1818),
+  [#1819](https://github.com/Shopify/shopify_app/pull/1819),
+  [#1821](https://github.com/Shopify/shopify_app/pull/1821),
+  [#1822](https://github.com/Shopify/shopify_app/pull/1822),
+  [#1823](https://github.com/Shopify/shopify_app/pull/1823),
+  [#1832](https://github.com/Shopify/shopify_app/pull/1832),
+  [#1833](https://github.com/Shopify/shopify_app/pull/1833),
+  [#1834](https://github.com/Shopify/shopify_app/pull/1834),
+  [#1836](https://github.com/Shopify/shopify_app/pull/1836),
+* Bumps `shopify_api` to `14.3.0` [1832](https://github.com/Shopify/shopify_app/pull/1832)
+* Support `id_token` from URL param [1832](https://github.com/Shopify/shopify_app/pull/1832)
+  * Extracted controller concern `WithShopifyIdToken`
+      * This concern provides a method `shopify_id_token` to retrieve the Shopify Id token from either the authorization header or the URL param `id_token`.
+  * `ShopifyApp::JWTMiddleware` supports retrieving session token from URL param `id_token`
+  * `ShopifyApp::JWTMiddleware` returns early if the app is not embedded to avoid unnecessary JWT verification
+  * `LoginProtection` now uses `WithShopifyIdToken` concern to retrieve the Shopify Id token, thus accepting the session token from the URL param `id_token`
+* Marking `ShopifyApp::JWT` to be deprecated in version 23.0.0 [1832](https://github.com/Shopify/shopify_app/pull/1832), use `ShopifyAPI::Auth::JwtPayload` instead.
+* Fix infinite redirect loop caused by handling errors from Billing API [1833](https://github.com/Shopify/shopify_app/pull/1833)
+
+22.1.0 (April 9,2024)
+----------
+* Extracted class - `PostAuthenticateTasks` to handle post authenticate tasks. To learn more, see [post authenticate tasks](/docs/shopify_app/authentication.md#post-authenticate-tasks). [1819](https://github.com/Shopify/shopify_app/pull/1819)
+* Bumps shopify_api dependency to 14.1.0 [1826](https://github.com/Shopify/shopify_app/pull/1826)
+
+22.0.1 (March 12, 2024)
+----------
+* Bumps `shopify_api` to `14.0.1` [1813](https://github.com/Shopify/shopify_app/pull/1813)
+
+22.00.0 (March 5, 2024)
+----------
+
+To migrate from a previous version, please see the [v22 migration guide](docs/Upgrading.md#upgrading-to-v2200).
+
+* ⚠️ [Breaking] Bumps minimum supported Ruby version to 3.0. Bumps `shopify_api` to 14.0 [1801](https://github.com/Shopify/shopify_app/pull/1801)
+* ⚠️ [Breaking] Removes deprecated controller concerns that were renamed in `v21.10.0`. [1805](https://github.com/Shopify/shopify_app/pull/1805)
+* ⚠️ [Breaking] Removes deprecated `ScripttagManager`. We realize there was communication error in our logging where we logged future deprecation instead of our inteded removal. Since we have been logging that for 2 years we felt we'd move forward with the removal instead pushing this off until the next major release. [1806](https://github.com/Shopify/shopify_app/pull/1806)
+* ⚠️ [Breaking] Removes ITP controller concern and `browser_sniffer` dependency.[1810](https://github.com/Shopify/shopify_app/pull/1810)
+* ⚠️ [Breaking] Removes Marketing Extensions generator [1810](https://github.com/Shopify/shopify_app/pull/1810)
+* ⚠️ [Breaking] Thows an error if a controller includes incompatible concerns (LoginProtection/EnsureInstalled) [1809](https://github.com/Shopify/shopify_app/pull/1809)
+* ⚠️ [Breaking] No longer rescues non-shopify API errors during OAuth
+  callback [1807](https://github.com/Shopify/shopify_app/pull/1807)
+* Make type param for webhooks route optional. This will fix a bug with CLI initiated webhooks.[1786](https://github.com/Shopify/shopify_app/pull/1786)
+* Fix redirecting to login when we catch a 401 response from Shopify, so that it can also handle cases where the app is already embedded when that happens.[1787](https://github.com/Shopify/shopify_app/pull/1787)
+* Always register webhooks with offline sessions.[1788](https://github.com/Shopify/shopify_app/pull/1788)
+
+21.10.0 (January 24, 2024)
+----------
+* Fix session deletion for users with customized session storage[#1773](https://github.com/Shopify/shopify_app/pull/1773)
+* Add configuration flag `check_session_expiry_date` to trigger a re-auth when the (user) session is expired. The session expiry date must be stored and retrieved for this flag to be effective. When the `UserSessionStorageWithScopes` concern is used, a DB migration can be generated with `rails generate shopify_app:user_model --skip` and should be applied before enabling that flag[#1757](https://github.com/Shopify/shopify_app/pull/1757)
+
+21.9.0 (January 16, 2024)
+----------
+* Fix `add_webhook` generator to create the webhook jobs under the correct directory[#1748](https://github.com/Shopify/shopify_app/pull/1748)
+* Add support for metafield_namespaces in webhook registration [#1745](https://github.com/Shopify/shopify_app/pull/1745)
+* Bumps `shopify_api` to latest version (13.4.0), adds support for 2024-01 API version [#1776](https://github.com/Shopify/shopify_app/pull/1776)
+
+21.8.1 (December 6, 2023)
+----------
+* Bump `shopify_api` to 13.3.1 [1763](https://github.com/Shopify/shopify-api-ruby/blob/main/CHANGELOG.md#1331)
+
+21.8.0 (Dec 1, 2023)
+----------
+* Bump `shopify_api` to include bugfix with mandatory webhooks + fixes for CI failures that prevented earlier release
+* Fixes bug with `WebhooksManager#recreate_webhooks!` where we failed to register topics in the registry[#1743](https://github.com/Shopify/shopify_app/pull/1704)
+* Allow embedded apps to provide a full URL to get redirected to, rather than defaulting to Shopify Admin [#1746](https://github.com/Shopify/shopify_app/pull/1746)
+
+21.7.0 (Oct 12, 2023)
+----------
+* Fixes typo in webhook generator [#1704](https://github.com/Shopify/shopify_app/pull/1704)
+* Fix registration of event_bridge and pub_sub webhooks [#1635](https://github.com/Shopify/shopify_app/pull/1635)
+* Adds support for adding any number of trial days within `EnsureBilling` by adding the `trial_days` field to `BillingConfiguration`
+* Updated AppBridge to 3.7.8 [#1680](https://github.com/Shopify/shopify_app/pull/1680)
+* Support falling back to 2 letter language code locales [#1711](https://github.com/Shopify/shopify_app/pull/1711)
+* Fix locale leaks across requests [#1711](https://github.com/Shopify/shopify_app/pull/1711)
+* Fix bug in `InMemoryUserSessionStore#store`, this can now be used out of box. [#1716](https://github.com/Shopify/shopify_app/pull/1716)
+* Adds support for 2023-10 API version [#1734](https://github.com/Shopify/shopify_app/pull/1734)
+
+21.6.0 (July 11, 2023)
+----------
+* Adds support for toggling test charges within `EnsureBilling` by adding `test` field to `BillingConfiguration` and pulling in environment variable [#1688](https://github.com/Shopify/shopify_app/pull/1688)
+* Adds support for 2023-07 API version [#1706](https://github.com/Shopify/shopify_app/pull/1706)
+
+21.5.0 (May 18, 2023)
+----------
+* Support Unified Admin [#1658](https://github.com/Shopify/shopify_app/pull/1658)
+* Set `access_scopes` column to string by default [#1636](https://github.com/Shopify/shopify_app/pull/1636)
+* Fixes a bug with `EnsureBilling` causing infinite redirect in embedded apps [#1578](https://github.com/Shopify/shopify_app/pull/1578)
+* Modifies SessionStorage#with_shopify_session to call a block with a supplied session instance [#1488](https://github.com/Shopify/shopify_app/pull/1488)
+* Refactors `ShopifyApp::WebhhooksManager#recreate_webhooks!` to have a uniform webhook inventory that doesn't clash with the API library. Updates webhook generator to use supplied session. [#1686](https://github.com/Shopify/shopify_app/pull/1686)
+* No longer use session repository from API library[#1689](https://github.com/Shopify/shopify_app/pull/1689)
+
+21.4.1 (Feb 21, 2023)
+----------
+* Fixed bug where authentication redirect could still happen even though `reauth_on_access_scope_changes` is set to `false` [#1639](https://github.com/Shopify/shopify_app/pull/1639)
+
+21.4.0 (Jan 5, 2023)
+----------
+* Updated shopify_api to 12.4.0 [#1633](https://github.com/Shopify/shopify_app/pull/1633)
+* Removed Logged output for rescued JWT exceptions [#1610](https://github.com/Shopify/shopify_app/pull/1610)
+* Fixes a bug with `ShopifyApp::WebhooksManager.destroy_webhooks` causing not passing session arguments to [unregister](https://github.com/Shopify/shopify-api-ruby/blob/main/lib/shopify_api/webhooks/registry.rb#L99) method [#1569](https://github.com/Shopify/shopify_app/pull/1569)
+* Validates shop's offline session token is still valid when using `EnsureInstalled`[#1612](https://github.com/Shopify/shopify_app/pull/1612)
+* Allows use of multiple subdomains with myshopify_domain [#1620](https://github.com/Shopify/shopify_app/pull/1620)
+* Added a `setup_shopify_session` test helper to stub a valid session
+
+21.3.1 (Dec 12, 2022)
+----------
+* Fix bug with stores using the new unified admin that were falsely being flagged as phishing attempts [#1608](https://github.com/Shopify/shopify_app/pull/1608)
+
+21.3.0 (Dec 9, 2022)
+----------
+* Move covered scopes check into user access strategy [#1600](https://github.com/Shopify/shopify_app/pull/1600)
+* Add configuration option for user access strategy [#1599](https://github.com/Shopify/shopify_app/pull/1599)
+* Fixes a bug with `EnsureAuthenticatedLinks` causing deep links to not work [#1549](https://github.com/Shopify/shopify_app/pull/1549)
+* Ensure online token is properly used when using `current_shopify_session` [#1566](https://github.com/Shopify/shopify_app/pull/1566)
+* Added debug logs, you can read more about logging [here](./docs/logging.md). [#1545](https://github.com/Shopify/shopify_app/pull/1545)
+* Emit a deprecation notice for wrongly-rescued exceptions [#1530](https://github.com/Shopify/shopify_app/pull/1530)
+* Log a deprecation warning for the use of incompatible controller concerns [#1560](https://github.com/Shopify/shopify_app/pull/1560)
+* Fixes bug with expired sessions for embedded apps returning a 500 instead of 401 [#1580](https://github.com/Shopify/shopify_app/pull/1580)
+* Generator properly handles uninstall [#1597](https://github.com/Shopify/shopify_app/pull/1597)
+* Move ownership for session persistence from library to this gem [#1563](https://github.com/Shopify/shopify_app/pull/1563)
+* Patch phishing vulnerability [#1605](https://github.com/Shopify/shopify_app/pull/1605)
+* Remove `Itp` from `LoginProtection`. See the [upgrading docs](https://github.com/Shopify/shopify_app/blob/main/docs/Upgrading.md) for more information. [#1604](https://github.com/Shopify/shopify_app/pull/1604)
+
+21.2.0 (Oct 25, 2022)
+----------
+* Pass access scopes on query string [#1540](https://github.com/Shopify/shopify_app/pull/1540)
+
+21.1.1 (Oct 20, 2022)
+----------
+* Updates dependency to `shopify_api` to 12.2 to fix error with host_name argument.
+
+21.1.0 (Oct 17, 2022)
+----------
+* Removes assumed `https` required to run locally. Support both `http` and `https` in backward compatible way. [#1518](https://github.com/Shopify/shopify_app/pull/1518)
+
+21.0.0 (Oct 3, 2022)
+----------
+* Updating shopify_api gem to 12.0.0
+
+20.2.0 (September 30, 2022)
+----------
+* Fixes a method signature error bug when raising `BillingError`.  [#1513](https://github.com/Shopify/shopify_app/pull/1513)
+* Fixes bug with Rails 7 and import maps with Safari/Firefox on the HomeController#index view.  [#1506](https://github.com/Shopify/shopify_app/pull/1506)
+* Refactors how default `domain_host` is populated in the CSP header added to responses in the `FrameAncestors` controller concern. [#1504](https://github.com/Shopify/shopify_app/pull/1504)
+* Removes duplicate `;` added in CSP header. [#1500](https://github.com/Shopify/shopify_app/pull/1500)
+
+* Fixed an issue where `ShopifyApp::UserSessionStorage` was causing an infinite OAuth loop when not checking scopes. [#1516](https://github.com/Shopify/shopify_app/pull/1516)
+* Move all error classes created for this gem into `lib/shopify_app/errors.rb`. Constant names of errors nested by modules and classes have been removed to give a shorter namespace.
+
+20.1.1 (September 2, 2022)
+----------
+* Fixed an issue where the `embedded_redirect_url` could lead to a redirect loop in server-side rendered (or production) apps. [#1497](https://github.com/Shopify/shopify_app/pull/1497)
+* Fixes bug where webhooks were generated with addresses instead of the [path the Ruby API](https://github.com/Shopify/shopify-api-ruby/blob/7a08ae9d96a7a85abd0113dae4eb76398cba8c64/lib/shopify_api/webhooks/registrations/http.rb#L12) is expecting [#1474](https://github.com/Shopify/shopify_app/pull/1474). The breaking change that was accidentially already shipped was that `address` attribute for webhooks should be paths not addresses with `https://` and the host name. While the `address` attribute name will still work assuming the value is a path, this name is deprecated. Please configure webhooks with the `path` attribute name instead.
+* Deduce webhook path from deprecated webhook address if initializer uses address attribute. This makes this attribute change a non-breaking change for those upgrading.
+
+20.1.0 (August 22, 2022)
+----------
 * Set the appropriate CSP `frame-ancestor` directive in controllers using the `EmbeddedApp` concern. [#1474](https://github.com/Shopify/shopify_app/pull/1474)
+* Allow [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/run-tunnel/trycloudflare/) hosts in `config/environments/development.rb`.
+* Use [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/run-tunnel/trycloudflare/) as example tunnel in readme/docs.
+* Change to optimize OAuth redirects to happen on the server side when possible.  Also, add an optional `.embedded_redirect_url` configuration parameter to enable customized App Bridge-supported redirect. [1483](https://github.com/Shopify/shopify_app/pull/1483)
 
 20.0.2 (July 7, 2022)
 ----------
-
 * Bump [Shopify API](https://github.com/Shopify/shopify-api-ruby) to version 11.0.1. It includes [these updates](https://github.com/Shopify/shopify-api-ruby/blob/main/CHANGELOG.md#version-1101). Fix an issue where HMAC signature verification would fail in OAuth flows during API key rotation.
 
 20.0.1 (July 6, 2022)
 ----------
-
 * Accept extra keyword arguments to WebhooksManagerJob to ease upgrade path from v18 or older (https://github.com/Shopify/shopify_app/pull/1466)
 
 20.0.0 (July 4, 2022)
 ----------
-
 * Bump [Shopify API](https://github.com/Shopify/shopify-api-ruby) to version 11.0.0. It includes [these updates](https://github.com/Shopify/shopify-api-ruby/blob/main/CHANGELOG.md#version-1100). The breaking change relates to the removal of API version `2021-07` support.
 * Internal update, adding App Bridge 3 for redirect (only). [#1458](https://github.com/Shopify/shopify_app/pull/1458)
 
 19.1.0 (June 20, 2022)
 ----------
-
 * Add the `login_callback_url` config to allow overwriting that route as well, and mount the engine routes based on the configurations. [#1445](https://github.com/Shopify/shopify_app/pull/1445)
 * Add special headers when returning 401s from LoginProtection. [#1450](https://github.com/Shopify/shopify_app/pull/1450)
 * Add a new `billing` configuration which takes in a `ShopifyApp::BillingConfiguration` object and checks for payment on controllers with `Authenticated`. [#1455](https://github.com/Shopify/shopify_app/pull/1455)
 
 19.0.2 (April 27, 2022)
 ----------
-
 * Fix regression in apps using online tokens. [#1413](https://github.com/Shopify/shopify_app/pull/1413)
 * Bump [Shopify API](https://github.com/Shopify/shopify-api-ruby) to version 10.0.3. It includes [these fixes](https://github.com/Shopify/shopify-api-ruby/blob/main/CHANGELOG.md#version-1003).
 

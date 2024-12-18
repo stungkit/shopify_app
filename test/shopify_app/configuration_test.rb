@@ -2,6 +2,18 @@
 
 require "test_helper"
 
+module Shopify
+  class CustomPostAuthenticateTasks
+    def self.perform
+    end
+  end
+
+  class InvalidPostAuthenticateTasksClass
+    def self.not_perform
+    end
+  end
+end
+
 class ConfigurationTest < ActiveSupport::TestCase
   setup do
     ShopifyApp.configuration = nil
@@ -23,6 +35,14 @@ class ConfigurationTest < ActiveSupport::TestCase
 
   test "defaults login_url" do
     assert_equal "/login", ShopifyApp.configuration.login_url
+  end
+
+  test "defaults login_callback_url" do
+    assert_equal "auth/shopify/callback", ShopifyApp.configuration.login_callback_url
+  end
+
+  test "defaults scope" do
+    assert_equal [], ShopifyApp.configuration.scope
   end
 
   test "can set root_url which affects login_url" do
@@ -47,6 +67,18 @@ class ConfigurationTest < ActiveSupport::TestCase
     end
 
     assert_equal "myshopify.io", ShopifyApp.configuration.myshopify_domain
+  end
+
+  test "defaults to unified_admin_domain" do
+    assert_equal "shopify.com", ShopifyApp.configuration.unified_admin_domain
+  end
+
+  test "can set unified_admin_domain" do
+    ShopifyApp.configure do |config|
+      config.unified_admin_domain = "myshopify.io"
+    end
+
+    assert_equal "myshopify.io", ShopifyApp.configuration.unified_admin_domain
   end
 
   test "can configure webhooks for creation" do
@@ -204,5 +236,99 @@ class ConfigurationTest < ActiveSupport::TestCase
 
     assert_equal ShopifyApp::AccessScopes::ShopStrategy, ShopifyApp.configuration.shop_access_scopes_strategy
     assert_equal ShopifyApp::AccessScopes::UserStrategy, ShopifyApp.configuration.user_access_scopes_strategy
+  end
+
+  test "user access scopes strategy is configurable with a string" do
+    my_strategy = "Object"
+    ShopifyApp.configure do |config|
+      config.user_access_scopes_strategy = my_strategy
+    end
+
+    assert_equal ShopifyApp::AccessScopes::NoopStrategy, ShopifyApp.configuration.shop_access_scopes_strategy
+    assert_equal Object, ShopifyApp.configuration.user_access_scopes_strategy
+  end
+
+  test "user access scopes strategy is not configurable with a constant" do
+    error = assert_raises ShopifyApp::ConfigurationError do
+      ShopifyApp.configure do |config|
+        config.user_access_scopes_strategy = Object
+      end
+    end
+    assert_equal "Invalid user access scopes strategy - expected a string", error.message
+  end
+
+  test "#use_new_embedded_auth_strategy? is true when new_embedded_auth_strategy is on for embedded apps" do
+    ShopifyApp.configure do |config|
+      config.embedded_app = true
+      config.new_embedded_auth_strategy = true
+    end
+
+    assert ShopifyApp.configuration.use_new_embedded_auth_strategy?
+  end
+
+  test "#use_new_embedded_auth_strategy? is false for non-embedded apps even if new_embedded_auth_strategy is configured" do
+    ShopifyApp.configure do |config|
+      config.embedded_app = false
+      config.new_embedded_auth_strategy = true
+    end
+
+    refute ShopifyApp.configuration.use_new_embedded_auth_strategy?
+  end
+
+  test "#use_new_embedded_auth_strategy? is false when new_embedded_auth_strategy is off" do
+    ShopifyApp.configure do |config|
+      config.new_embedded_auth_strategy = false
+    end
+
+    refute ShopifyApp.configuration.use_new_embedded_auth_strategy?
+  end
+
+  test "#online_token_configured? is true when user_session_repository is set" do
+    ShopifyApp.configure do |config|
+      config.user_session_repository = "ShopifyApp::InMemoryUserSessionStore"
+    end
+
+    assert ShopifyApp.configuration.online_token_configured?
+  end
+
+  test "#online_token_configured? is false when user storage is nil" do
+    ShopifyApp.configure do |config|
+      config.user_session_repository = "ShopifyApp::InMemoryUserSessionStore"
+    end
+    ShopifyApp::SessionRepository.user_storage = nil
+
+    refute ShopifyApp.configuration.online_token_configured?
+  end
+
+  test "#post_authenticate_tasks defaults to ShopifyApp::Auth::PostAuthenticateTasks" do
+    assert_equal ShopifyApp::Auth::PostAuthenticateTasks, ShopifyApp.configuration.post_authenticate_tasks
+  end
+
+  test "#post_authenticate_tasks can be set to a custom class" do
+    ShopifyApp.configure do |config|
+      config.custom_post_authenticate_tasks = Shopify::CustomPostAuthenticateTasks
+    end
+
+    assert_equal Shopify::CustomPostAuthenticateTasks, ShopifyApp.configuration.post_authenticate_tasks
+  end
+
+  test "#post_authenticate_tasks can be set to a custom class name" do
+    ShopifyApp.configure do |config|
+      config.custom_post_authenticate_tasks = "Shopify::CustomPostAuthenticateTasks"
+    end
+
+    assert_equal Shopify::CustomPostAuthenticateTasks, ShopifyApp.configuration.post_authenticate_tasks
+  end
+
+  test "post_authenticate_tasks raises an error if the custom class does not respond to perform" do
+    ShopifyApp.configure do |config|
+      config.custom_post_authenticate_tasks = Shopify::InvalidPostAuthenticateTasksClass
+    end
+
+    error = assert_raises(ShopifyApp::ConfigurationError) do
+      ShopifyApp.configuration.post_authenticate_tasks
+    end
+
+    assert_equal "Missing method - 'perform' for custom_post_authenticate_tasks", error.message
   end
 end

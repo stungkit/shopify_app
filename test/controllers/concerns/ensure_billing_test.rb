@@ -24,29 +24,55 @@ class EnsureBillingTest < ActionController::TestCase
       get "/billing", to: "ensure_billing_test/billing_test#index"
     end
 
-    ShopifyApp::SessionRepository.shop_storage = ShopifyApp::InMemoryShopSessionStore
-    ShopifyApp::SessionRepository.user_storage = ShopifyApp::InMemoryUserSessionStore
-
     @session = ShopifyAPI::Auth::Session.new(
       id: "1234",
       shop: SHOP,
       access_token: "access-token",
       scope: ["read_products"],
     )
-    ShopifyAPI::Utils::SessionUtils.stubs(:load_current_session).returns(@session)
+    @controller.stubs(:current_shopify_session).returns(@session)
 
     @api_version = ShopifyAPI::LATEST_SUPPORTED_ADMIN_VERSION
+    ShopifyApp.configuration.api_version = @api_version
+    ShopifyAppConfigurer.setup_context
+  end
 
-    ShopifyAPI::Context.setup(
-      api_key: "api_key",
-      api_secret_key: "api_secret_key",
-      api_version: @api_version,
-      host_name: "host.example.io",
-      scope: "read_products",
-      session_storage: ShopifyApp::SessionRepository,
-      is_private: false,
-      is_embedded: true,
+  test "billing configuration with test charges default" do
+    ShopifyApp.configuration.billing = ShopifyApp::BillingConfiguration.new(
+      charge_name: TEST_CHARGE_NAME,
+      amount: 5,
+      interval: ShopifyApp::BillingConfiguration::INTERVAL_ONE_TIME,
     )
+    assert(ShopifyApp.configuration.billing.test)
+  end
+
+  test "billing configuration with real" do
+    ShopifyApp.configuration.billing = ShopifyApp::BillingConfiguration.new(
+      charge_name: TEST_CHARGE_NAME,
+      amount: 5,
+      interval: ShopifyApp::BillingConfiguration::INTERVAL_ONE_TIME,
+      test: false,
+    )
+    assert_not(ShopifyApp.configuration.billing.test)
+  end
+
+  test "billing configuration with trial_days charges default" do
+    ShopifyApp.configuration.billing = ShopifyApp::BillingConfiguration.new(
+      charge_name: TEST_CHARGE_NAME,
+      amount: 5,
+      interval: ShopifyApp::BillingConfiguration::INTERVAL_ONE_TIME,
+    )
+    assert(0, ShopifyApp.configuration.billing.trial_days)
+  end
+
+  test "billing configuration with trial_days" do
+    ShopifyApp.configuration.billing = ShopifyApp::BillingConfiguration.new(
+      charge_name: TEST_CHARGE_NAME,
+      amount: 5,
+      interval: ShopifyApp::BillingConfiguration::INTERVAL_ONE_TIME,
+      trial_days: 7,
+    )
+    assert(7, ShopifyApp.configuration.billing.trial_days)
   end
 
   test "requires single payment if none exists and non recurring" do
@@ -68,7 +94,7 @@ class EnsureBillingTest < ActionController::TestCase
 
     get :index
 
-    assert_redirected_to(%r{^https://totally-real-url})
+    assert_client_side_redirection "https://totally-real-url"
 
     get :index, xhr: true
 
@@ -105,7 +131,7 @@ class EnsureBillingTest < ActionController::TestCase
 
     get :index
 
-    assert_redirected_to(%r{^https://totally-real-url})
+    assert_client_side_redirection "https://totally-real-url"
 
     get :index, xhr: true
 
@@ -171,7 +197,7 @@ class EnsureBillingTest < ActionController::TestCase
 
     get :index
 
-    assert_redirected_to(%r{^https://totally-real-url})
+    assert_client_side_redirection "https://totally-real-url"
 
     get :index, xhr: true
 
@@ -214,14 +240,54 @@ class EnsureBillingTest < ActionController::TestCase
     refute response.headers["X-Shopify-API-Request-Failure-Reauthorize-Url"].present?
   end
 
+  test "Add app bridge redirect headers when handling billing error for XHR requests" do
+    ShopifyApp.configuration.billing = ShopifyApp::BillingConfiguration.new(
+      charge_name: TEST_CHARGE_NAME,
+      amount: 5,
+      interval: ShopifyApp::BillingConfiguration::INTERVAL_ONE_TIME,
+    )
+    @controller.stubs(:run_query).raises(ShopifyApp::BillingError.new("Billing error", { errors: "not good" }))
+
+    ShopifyApp::Logger.expects(:warn).with("Encountered billing error - Billing error: {:errors=>\"not good\"}"\
+      "\nRedirecting to login page")
+
+    get :index, xhr: true
+
+    assert_response :unauthorized
+    assert_match "1", response.headers["X-Shopify-API-Request-Failure-Reauthorize"]
+    assert_match(ShopifyApp.configuration.login_url, response.headers["X-Shopify-API-Request-Failure-Reauthorize-Url"])
+  end
+
+  test "Redirect to login when handling billing errors" do
+    ShopifyApp.configuration.billing = ShopifyApp::BillingConfiguration.new(
+      charge_name: TEST_CHARGE_NAME,
+      amount: 5,
+      interval: ShopifyApp::BillingConfiguration::INTERVAL_ONE_TIME,
+    )
+
+    @controller.stubs(:run_query).raises(ShopifyApp::BillingError.new("Billing error", { errors: "not good" }))
+
+    @controller.expects(:fullpage_redirect_to).with(ShopifyApp.configuration.login_url)
+    ShopifyApp::Logger.expects(:warn).with("Encountered billing error - Billing error: {:errors=>\"not good\"}"\
+      "\nRedirecting to login page")
+
+    get :index
+  end
+
   private
+
+  def assert_client_side_redirection(url)
+    assert_response :success
+    assert_match "Redirecting", response.body
+    assert_match(url, response.body)
+  end
 
   def stub_graphql_requests(*requests)
     requests.each do |request|
       stub_request(:post, "https://my-shop.myshopify.com/admin/api/#{@api_version}/graphql.json")
         .with(
           body: request[:request_body],
-          headers: { "X-Shopify-Access-Token": "access-token" }
+          headers: { "X-Shopify-Access-Token": "access-token" },
         )
         .to_return(
           status: 200,
@@ -251,7 +317,8 @@ class EnsureBillingTest < ActionController::TestCase
             {
               node: {
                 name: TEST_CHARGE_NAME,
-                test: true, status: "ACTIVE",
+                test: true,
+                status: "ACTIVE",
               },
             },
           ],

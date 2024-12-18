@@ -35,7 +35,27 @@ module ShopifyApp
         if new_shopify_cli_app? || Rails.env.test? || yes?(scopes_column_prompt)
           migration_template(
             "db/migrate/add_user_access_scopes_column.erb",
-            "db/migrate/add_user_access_scopes_column.rb"
+            "db/migrate/add_user_access_scopes_column.rb",
+          )
+        end
+      end
+
+      def create_expires_at_storage_in_user_model
+        expires_at_column_prompt = <<~PROMPT
+          It is highly recommended that apps record the User session expiry date. \
+          This will allow to check if the session has expired and re-authenticate \
+          without a first call to Shopify.
+
+          After running the migration, the `check_session_expiry_date` configuration can be enabled.
+
+          The following migration will add an `expires_at` column to the User model. \
+          Do you want to include this migration? [y/n]
+        PROMPT
+
+        if new_shopify_cli_app? || Rails.env.test? || yes?(expires_at_column_prompt)
+          migration_template(
+            "db/migrate/add_user_expires_at_column.erb",
+            "db/migrate/add_user_expires_at_column.rb",
           )
         end
       end

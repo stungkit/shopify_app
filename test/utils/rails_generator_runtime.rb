@@ -9,6 +9,7 @@ module Utils
 
     def initialize(test_class)
       raise "Caller must provide an instance of a test to Utils::RailsGeneratorRuntime.new" if test_class.nil?
+
       Utils::RailsGeneratorRuntime.clear_generated_source_folder_on_first_instance
       @classes = []
       @destination = File.join(ROOT, "#{test_class.class_name}/#{test_class.method_name}")
@@ -19,7 +20,7 @@ module Utils
         suppress_output do
           generator_class.start(
             additional_args + ["--skip-bundle", "--skip-bootsnap"],
-            { destination_root: destination }
+            { destination_root: destination },
           )
         end
       end
@@ -78,15 +79,14 @@ module Utils
         original_embedded_app = ShopifyApp.configuration.embedded_app
         ShopifyApp.configuration.embedded_app = false unless is_embedded
         ShopifyAPI::Context.setup(
-          api_key: "API_KEY",
-          api_secret_key: "API_SECRET_KEY",
-          api_version: "2022-01",
+          api_key: ShopifyApp.configuration.api_key,
+          api_secret_key: ShopifyApp.configuration.secret,
+          api_version: ShopifyApp.configuration.api_version,
           host_name: "app-address.com",
-          scope: ["scope1", "scope2"],
+          scope: ShopifyApp.configuration.scope,
           is_private: is_private,
           is_embedded: is_embedded,
-          session_storage: TestHelpers::FakeSessionStorage.new,
-          user_agent_prefix: nil
+          user_agent_prefix: nil,
         )
         ShopifyAPI::Context.activate_session(ShopifyAPI::Auth::Session.new(shop: "my-shop"))
 
@@ -100,6 +100,7 @@ module Utils
 
       def clear_generated_source_folder_on_first_instance
         return if @initialized
+
         @initialized = true
         FileUtils.rm_rf(ROOT)
         FileUtils.mkdir_p(ROOT)

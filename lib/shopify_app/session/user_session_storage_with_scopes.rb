@@ -15,6 +15,7 @@ module ShopifyApp
         user.shopify_token = auth_session.access_token
         user.shopify_domain = auth_session.shop
         user.access_scopes = auth_session.scope.to_s
+        user.expires_at = auth_session.expires
 
         user.save!
         user.id
@@ -30,6 +31,10 @@ module ShopifyApp
         construct_session(user)
       end
 
+      def destroy_by_shopify_user_id(user_id)
+        destroy_by(shopify_user_id: user_id)
+      end
+
       private
 
       def construct_session(user)
@@ -43,7 +48,7 @@ module ShopifyApp
           email_verified: false,
           account_owner: false,
           locale: "",
-          collaborator: false
+          collaborator: false,
         )
 
         ShopifyAPI::Auth::Session.new(
@@ -51,7 +56,8 @@ module ShopifyApp
           access_token: user.shopify_token,
           scope: user.access_scopes,
           associated_user_scope: user.access_scopes,
-          associated_user: associated_user
+          associated_user: associated_user,
+          expires: user.expires_at,
         )
       end
     end
@@ -66,6 +72,25 @@ module ShopifyApp
       super
     rescue NotImplementedError, NoMethodError
       raise NotImplementedError, "#access_scopes= must be defined to hook into stored access scopes"
+    end
+
+    def expires_at=(expires_at)
+      super
+    rescue NotImplementedError, NoMethodError
+      if ShopifyApp.configuration.check_session_expiry_date
+        raise NotImplementedError,
+          "#expires_at= must be defined to handle storing the session expiry date"
+      end
+    end
+
+    def expires_at
+      super
+    rescue NotImplementedError, NoMethodError
+      if ShopifyApp.configuration.check_session_expiry_date
+        raise NotImplementedError, "#expires_at must be defined to check the session expiry date"
+      end
+
+      nil
     end
   end
 end

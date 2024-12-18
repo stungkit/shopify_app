@@ -3,15 +3,26 @@
 module ShopifyApp
   module ShopAccessScopesVerification
     extend ActiveSupport::Concern
+    include ShopifyApp::RedirectForEmbedded
 
     included do
-      before_action :login_on_scope_changes
+      # Embedded auth strategy uses Shopify managed install to ensure latest access scopes,
+      # This will be handled automatically through token exchange
+      unless ShopifyApp.configuration.use_new_embedded_auth_strategy?
+        before_action :login_on_scope_changes
+      end
     end
 
     protected
 
     def login_on_scope_changes
-      redirect_to(shop_login) if scopes_mismatch?
+      if scopes_mismatch?
+        if embedded_param?
+          redirect_for_embedded
+        else
+          redirect_to(shop_login)
+        end
+      end
     end
 
     private
@@ -22,6 +33,7 @@ module ShopifyApp
 
     def current_shopify_domain
       return if params[:shop].blank?
+
       ShopifyApp::Utils.sanitize_shop_domain(params[:shop])
     end
 

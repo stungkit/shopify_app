@@ -1,41 +1,184 @@
 # Authentication
 
-The Shopify App gem implements [OAuth 2.0](https://shopify.dev/tutorials/authenticate-with-oauth) to get [access tokens](https://shopify.dev/concepts/about-apis/authentication#api-access-modes). These are used to authenticate requests made by the app to the Shopify API. 
+The Shopify App gem implements [OAuth 2.0](https://shopify.dev/tutorials/authenticate-with-oauth) to get [session tokens](https://shopify.dev/concepts/about-apis/authentication#api-access-modes). These are used to authenticate requests made by the app to the Shopify API.
 
 By default, the gem generates an embedded app frontend that uses [Shopify App Bridge](https://shopify.dev/tools/app-bridge) to fetch [session tokens](https://shopify.dev/concepts/apps/building-embedded-apps-using-session-tokens). Session tokens are used by the embedded app to make authenticated requests to the app backend. 
 
-See [*Authenticate an embedded app using session tokens*](https://shopify.dev/tutorials/authenticate-your-app-using-session-tokens) to learn more. 
+See [*Getting started with session token authentication*](https://shopify.dev/docs/apps/auth/oauth/session-tokens/getting-started) to learn more. 
 
 > ⚠️ Be sure you understand the differences between the types of authentication schemes before reading this guide.
 
 #### Table of contents
 
-[OAuth callback](#oauth-callback)
+* [Supported types of OAuth Flow](#supported-types-of-oauth)
+  * [Token Exchange](#token-exchange)
+  * [Authorization Code Grant Flow](#authorization-code-grant-flow)
+    * [OAuth callback](#oauth-callback)
+      * [Customizing callback controller](#customizing-callback-controller)
+    * [Detecting scope changes](#detecting-scope-changes-1)
+* [Run jobs after the OAuth flow](#post-authenticate-tasks)
+* [Rotate API credentials](#rotate-api-credentials)
+* [Making authenticated API requests after authorization](#making-authenticated-api-requests-after-authorization)
 
-[Run jobs after the OAuth flow](#run-jobs-after-the-oauth-flow)
+## Supported types of OAuth
+> [!TIP]
+> If you are building an embedded app, we **strongly** recommend using [Shopify managed installation](https://shopify.dev/docs/apps/auth/installation#shopify-managed-installation)
+with [token exchange](#token-exchange) instead of the authorization code grant flow.
 
-[Rotate API credentials](#rotate-api-credentials)
+1. [Token Exchange](#token-exchange)
+    - Recommended and is only available for embedded apps
+    - Doesn't require redirects, which makes authorization faster and prevents flickering when loading the app
+    - Access scope changes are handled by Shopify when you use [Shopify managed installation](https://shopify.dev/docs/apps/auth/installation#shopify-managed-installation)
+2. [Authorization Code Grant Flow](#authorization-code-grant-flow)
+    - Suitable for non-embedded apps
+    - Installations, and access scope changes are managed by the app
 
-[Available authentication mixins](#available-authentication-mixins)
-  * [`ShopifyApp::Authenticated`](#shopifyappauthenticated)
-  * [`ShopifyApp::EnsureAuthenticatedLinks`](#shopifyappensureauthenticatedlinks)
+## Token Exchange
 
-## OAuth callback
+OAuth process by exchanging the current user's [session token (shopify id token)](https://shopify.dev/docs/apps/auth/session-tokens) for an
+[access token](https://shopify.dev/docs/apps/auth/access-token-types/online.md) to make
+authenticated Shopify API queries. This will replace authorization code grant flow completely when your app is configured with [Shopify managed installation](https://shopify.dev/docs/apps/auth/installation#shopify-managed-installation).
 
->️ **Note:** In Shopify App version 8.4.0, we have extracted the callback logic in its own controller. If you are upgrading from a version older than 8.4.0 the callback action and related helper methods were defined in `ShopifyApp::SessionsController` ==> you will have to extend `ShopifyApp::CallbackController` instead and port your logic to the new controller.
+To enable token exchange authorization strategy, you can follow the steps in ["New embedded app authorization strategy"](/README.md#new-embedded-app-authorization-strategy).
+Upon completion of the token exchange to get the access token, [post authenticated tasks](#post-authenticate-tasks) will be run.
 
-Upon completing the OAuth flow, Shopify calls the app at the `callback_path`. If the app needs to do some extra work, it can define and configure the route to a custom callback controller, inheriting from `ShopifyApp::CallbackController` and hook into or override any of the defined helper methods. The default callback controller already provides the following behaviour:
-* Logging into the shop and resetting the session
-* [Installing Webhooks](/docs/shopify_app/webhooks.md)
-* [Setting Scripttags](/docs/shopify_app/script-tags.md)
-* [Run jobs after the OAuth flow](#run-jobs-after-the-oauth-flow)
-* Redirecting to the return address
+Learn more about:
+- [How token exchange works](https://shopify.dev/docs/apps/auth/get-access-tokens/token-exchange)
+- [Using Shopify managed installation](https://shopify.dev/docs/apps/auth/installation#shopify-managed-installation)
+- [Configuring access scopes through the Shopify CLI](https://shopify.dev/docs/apps/tools/cli/configuration)
 
-## Run jobs after the OAuth flow
+#### Handling invalid access tokens
+If the access token used to make an API call is invalid, the token exchange strategy will handle the error and try to retrieve a new access token before retrying 
+the same operation. 
+See ["Re-fetching an access token when API returns Unauthorized"](/docs/shopify_app/sessions.md#re-fetching-an-access-token-when-api-returns-unauthorized) section for more information.
+
+#### Detecting scope changes
+
+##### Shopify managed installation
+If your access scopes are [configured through the Shopify CLI](https://shopify.dev/docs/apps/tools/cli/configuration), scope changes will be handled by Shopify automatically.
+Learn more about [Shopify managed installation](https://shopify.dev/docs/apps/auth/installation#shopify-managed-installation).
+Using token exchange will ensure that the access token retrieved will always have the latest access scopes granted by the user.
+
+## Authorization Code Grant Flow
+Authorization code grant flow is the OAuth flow that requires the app to redirect the user 
+to Shopify for installation/authorization of the app to access the shop's data. It is still required for apps that are not embedded.
+
+If your app is not using [Shopify managed installation](https://shopify.dev/docs/apps/auth/installation#shopify-managed-installation) with declared scopes in your `.toml` file, you can change the requested access scopes during OAuth flow 
+by adding the `scope` to your configurations - `ShopifyApp.configuration` & `ShopifyAPI::Context.setup`.
+
+
+```ruby
+# config/initializers/shopify_app.rb
+
+ShopifyApp.configure do |config|
+  ...
+  config.scope = ["read_discounts", "write_products"]
+  ...
+end
+
+ShopifyAPI::Context.setup(
+  ...
+  scope: ShopifyApp.configuration.scope,
+  ...
+)
+```
+
+To perform [authorization code grant flow](https://shopify.dev/docs/apps/auth/get-access-tokens/authorization-code-grant), you app will need to handle
+[begin OAuth](#begin-oauth) and [OAuth callback](#oauth-callback) routes.
+
+### Begin OAuth
+ShopifyApp automatically redirects the user to Shopify to complete OAuth to install the app when the `ShopifyApp.configuration.login_url` is reached.
+Behind the scenes the ShopifyApp gem starts the process by calling `ShopifyAPI::Auth::Oauth.begin_auth` to build the 
+redirect URL with necessary parameters like the OAuth callback URL, scopes requested, type of access token (offline or online) requested, etc.
+The ShopifyApp gem then redirect the merchant to Shopify, to ask for permission to install the app. (See [ShopifyApp::SessionsController.redirect_to_begin_oauth](https://github.com/Shopify/shopify_app/blob/main/app/controllers/shopify_app/sessions_controller.rb#L76-L96)
+for detailed implementation)
+
+### OAuth callback
+
+Shopify will redirect the merchant back to your app's callback URL once they approve the app installation.
+Upon completing the OAuth flow, Shopify calls the app at `ShopifyApp.configuration.login_callback_url`. (This was provided to Shopify in the OAuth begin URL parameters)
+
+The default callback controller [`ShopifyApp::CallbackController`](../../app/controllers/shopify_app/callback_controller.rb) provides the following behaviour:
+
+1. Logging into the shop and resetting the session
+2. Storing the session to the `SessionRepository`
+3. [Post authenticate tasks](#post-authenticate-tasks)
+4. Redirecting to the return address
+
+#### Customizing callback controller
+If you need to define a custom callback controller to handle your app's use case, you can configure the callback route to your controller.
+
+Example:
+
+1. Create the new custom callback controller
+```ruby
+# web/app/controllers/my_custom_callback_controller.rb
+
+class MyCustomCallbackController
+  def callback
+    # My custom callback logic
+  end
+end
+```
+
+2. Override callback routing to this controller
+
+```ruby
+# web/config/routes.rb
+
+Rails.application.routes.draw do
+  root to: "home#index"
+
+  # Overriding the callback controller to the new custom one.
+  # This must be added before mounting the ShopifyApp::Engine
+  get ShopifyApp.configuration.login_callback_url, to: 'my_custom_callback#callback'
+
+  mount ShopifyApp::Engine, at: "/api"
+
+  # other routes
+end
+```
+
+### Detecting scope changes
+When the OAuth process is completed, the created session has a `scope` field which holds all of the access scopes that were requested from the merchant at the time.
+
+When an app's access scopes change, it needs to request merchants to go through OAuth again to renew its permissions.
+
+See [Handling changes in access scopes](/docs/shopify_app/handling-access-scopes-changes.md).
+
+## Post Authenticate tasks
+After authentication is complete, a few tasks are run by default by PostAuthenticateTasks:
+1. [Installing Webhooks](/docs/shopify_app/webhooks.md)
+2. [Run configured after_authenticate_job](#after_authenticate_job)
+
+The [PostAuthenticateTasks](https://github.com/Shopify/shopify_app/blob/main/lib/shopify_app/auth/post_authenticate_tasks.rb)
+class is responsible for triggering the webhooks manager for webhooks registration, and enqueue jobs from [after_authenticate_job](#after_authenticate_job).
+
+If you simply need to enqueue more jobs to run after authenticate, use [after_authenticate_job](#after_authenticate_job) to define these jobs.
+
+If your post authentication tasks is more complex and is different than just installing webhooks and enqueuing jobs,
+you can customize the post authenticate tasks by creating a new class that has a `self.perform(session)` method,
+and configuring `custom_post_authenticate_tasks` in the initializer.
+
+```ruby
+# my_custom_post_authenticate_task.rb
+class MyCustomPostAuthenticateTask
+  def self.perform(session)
+    # This will be triggered after OAuth callback and token exchange completion
+  end
+end
+
+# config/initializers/shopify_app.rb
+ShopifyApp.configure do |config|
+  config.custom_post_authenticate_tasks = "MyCustomPostAuthenticateTask"
+end
+```
+
+#### after_authenticate_job
 
 See [`ShopifyApp::AfterAuthenticateJob`](/lib/generators/shopify_app/add_after_authenticate_job/templates/after_authenticate_job.rb).
 
-If your app needs to perform specific actions after the user is authenticated successfully (i.e. every time a new session is created), ShopifyApp can queue or run a job of your choosing (note that we already provide support for automatically creating Webhooks and Scripttags). To configure the after authenticate job, update your initializer as follows:
+If your app needs to perform specific actions after the user is authenticated successfully (i.e. every time a new session is created), ShopifyApp can queue or run a job of your choosing. To configure the after authenticate job, update your initializer as follows:
 
 ```ruby
 ShopifyApp.configure do |config|
@@ -49,7 +192,7 @@ If you need the job to run synchronously add the `inline` flag:
 
 ```ruby
 ShopifyApp.configure do |config|
-  config.after_authenticate_job = { job: Shopify::AfterAuthenticateJob, inline: true }
+  config.after_authenticate_job = { job: "Shopify::AfterAuthenticateJob", inline: true }
 end
 ```
 
@@ -63,13 +206,24 @@ If you want to perform that action only once, e.g. send a welcome email to the u
 
 ## Rotate API credentials
 
-If your Shopify secret key is leaked, you can use the RotateShopifyTokenJob to perform [API Credential Rotation](https://help.shopify.com/en/api/getting-started/authentication/oauth/api-credential-rotation).
+If your Shopify secret key is leaked, you can use the `RotateShopifyTokenJob` to perform [API Credential Rotation](https://help.shopify.com/en/api/getting-started/authentication/oauth/api-credential-rotation).
 
 Before running the job, you'll need to generate a new secret key from your Shopify Partner dashboard, and update the `/config/initializers/shopify_app.rb` to hold your new and old secret keys:
 
 ```ruby
 config.secret = Rails.application.secrets.shopify_secret
 config.old_secret = Rails.application.secrets.old_shopify_secret
+```
+
+Also make sure the old secret is specified when setting up `ShopifyAPI::Context` as well:
+
+```ruby
+ShopifyAPI::Context.setup(
+  api_key: ShopifyApp.configuration.api_key,
+  api_secret_key: ShopifyApp.configuration.secret,
+  # ...
+  old_api_secret_key: ShopifyApp.configuration.old_secret,
+)
 ```
 
 We've provided a generator which creates the job and an example rake task:
@@ -86,39 +240,10 @@ strategy.options[:old_client_secret] = ShopifyApp.configuration.old_secret
 
 > **Note:** If you are updating `shopify_app` from a version prior to 8.4.2 (and do not wish to run the default/install generator again), you will need to add [the following line](https://github.com/Shopify/shopify_app/blob/4f7e6cca2a472d8f7af44b938bd0fcafe4d8e88a/lib/generators/shopify_app/install/templates/shopify_provider.rb#L18) to `config/initializers/omniauth.rb`:
 
-## Available authentication mixins
+## Making authenticated API requests after authorization
+After the app is installed onto a shop and has been granted all necessary permission, a new session record will be added to `SessionRepository#shop_storage`, or `SessionRepository#user_storage` if online sessions are enabled.
 
-### `ShopifyApp::Authenticated`
+When your app needs to make API requests to Shopify, `ShopifyApp`'s `ActiveSupport` controller concerns can help you retrieve the active session token from the repository to make the authenticate API call.
 
-The engine provides a [`ShopifyApp::Authenticated`](/app/controllers/concerns/shopify_app/authenticated.rb) concern which should be included in any controller that is intended to be behind Shopify OAuth. It adds `before_action`s to ensure that the user is authenticated and will redirect to the Shopify login page if not. It is best practice to include this concern in a base controller inheriting from your `ApplicationController`, from which all controllers that require Shopify authentication inherit.
-
-*Example:*
-
-```rb
-class AuthenticatedController < ApplicationController
-  include ShopifyApp::Authenticated
-end
-
-class ApiController < AuthenticatedController
-  # Actions in this controller are protected
-end
-```
-
-For backwards compatibility, the engine still provides a controller called `ShopifyApp::AuthenticatedController` which includes the `ShopifyApp::Authenticated` concern. Note that it inherits directly from `ActionController::Base`, so you will not be able to share functionality between it and your application's `ApplicationController`.
-
-### `ShopifyApp::EnsureAuthenticatedLinks`
-
-The [`ShopifyApp::EnsureAuthenticatedLinks`](/app/controllers/concerns/shopify_app/ensure_authenticated_links.rb) concern helps authenticate users that access protected pages of your app directly.
-
-Include this concern in your app's `AuthenticatedController` if your app uses session tokens with [Turbolinks](https://github.com/turbolinks/turbolinks). It adds a `before_action` filter that detects whether a session token is present or not. If a session token is not found, the user is redirected to your app's splash page path (`root_path`) along with `return_to` and `shop` parameters.
-
-*Example:*
-
-```rb
-class AuthenticatedController < ApplicationController
-  include ShopifyApp::EnsureAuthenticatedLinks
-  include ShopifyApp::Authenticated
-end
-```
-
-See [Authenticate server-side rendered embedded apps using Rails and Turbolinks](https://shopify.dev/tutorials/authenticate-server-side-rendered-embedded-apps-using-rails-and-turbolinks) for more information.
+- ⚠️ See [Sessions](./sessions.md) page to understand how sessions work.
+- ⚠️ See [Controller Concerns](./controller-concerns.md) page to understand when to use which concern.

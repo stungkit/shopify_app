@@ -16,9 +16,6 @@ module.exports = function(config) {
     exclude: [
       // Exclude JS files that create 'DOMContentLoaded' event listeners
       'app/assets/javascripts/**/redirect.js',
-      'app/assets/javascripts/**/storage_access_redirect.js',
-      'app/assets/javascripts/**/top_level_interaction.js',
-      'app/assets/javascripts/**/partition_cookies.js',
     ],
     mochaReporter: {
       output: 'autowatch',
@@ -26,7 +23,12 @@ module.exports = function(config) {
     preprocessors: {
       'test/javascripts/**/*test.js': ['webpack'],
     },
-    webpack: {},
+    webpack: {
+      mode: 'none',
+      output: {
+        hashFunction: 'rsa-sha512',
+      },
+    },
     reporters: karmaReporters,
     port: 9876,
     colors: true,

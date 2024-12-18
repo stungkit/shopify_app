@@ -37,7 +37,7 @@ module ShopifyApp
       assert_kind_of InMemoryShopSessionStore.class, SessionRepository.user_storage
 
       SessionRepository.shop_storage = nil
-      assert_raises(SessionRepository::ConfigurationError) { SessionRepository.shop_storage }
+      assert_raises(::ShopifyApp::ConfigurationError) { SessionRepository.shop_storage }
     end
 
     test ".shop_storage accepts a String as argument" do
@@ -112,11 +112,11 @@ module ShopifyApp
     end
 
     test ".store_session stores a shop session" do
-      SessionRepository.shop_storage = InMemoryUserSessionStore
+      SessionRepository.shop_storage = InMemoryShopSessionStore
 
       session = mock_shopify_session
 
-      InMemoryUserSessionStore.expects(:store).with(session)
+      InMemoryShopSessionStore.expects(:store).with(session)
 
       SessionRepository.store_session(session)
     end
@@ -140,21 +140,21 @@ module ShopifyApp
     end
 
     test(".delete_session destroys a shop record") do
-      shop = MockShopInstance.new(shopify_domain: "shop", shopify_token: "token")
+      SessionRepository.shop_storage = InMemoryShopSessionStore
+      mock_session_id = "offline_abra-shop"
 
-      Shop.expects(:find_by).with(shopify_domain: "shop").returns(shop)
-      shop.expects(:destroy)
+      InMemoryShopSessionStore.expects(:destroy_by_shopify_domain).with("abra-shop")
 
-      SessionRepository.delete_session("offline_shop")
+      SessionRepository.delete_session(mock_session_id)
     end
 
     test(".delete_session destroys a user record") do
-      user = MockUserInstance.new(shopify_domain: "shop", shopify_token: "token")
+      SessionRepository.user_storage = InMemoryUserSessionStore
+      mock_session_id = "test_shop.myshopify.com_1234"
 
-      User.expects(:find_by).with(shopify_user_id: "1234").returns(user)
-      user.expects(:destroy)
+      InMemoryUserSessionStore.expects(:destroy_by_shopify_user_id).with("1234")
 
-      SessionRepository.delete_session("shop_1234")
+      SessionRepository.delete_session(mock_session_id)
     end
 
     private
@@ -171,7 +171,7 @@ module ShopifyApp
       ShopifyAPI::Auth::Session.new(
         shop: mock_shopify_domain,
         access_token: "abracadabra",
-        scope: "read_products"
+        scope: "read_products",
       )
     end
 
@@ -184,7 +184,7 @@ module ShopifyApp
         email_verified: true,
         account_owner: false,
         locale: "en",
-        collaborator: true
+        collaborator: true,
       )
     end
   end

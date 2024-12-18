@@ -23,7 +23,7 @@ Shopify has an official message board with dedicated forums to discuss all thing
 * [Shopify Apps](https://community.shopify.com/c/Shopify-Apps/bd-p/shopify-apps)
 * [Shopify APIs & SDKs](https://community.shopify.com/c/Shopify-APIs-SDKs/bd-p/shopify-apis-and-technology)
 
-If you prefer to chat instead, join the [Shopify Partners Slack Community group](https://www.shopify.com/partners/community#conversation). This Slack group hosts an active community of thousands of app developers.
+If you prefer to chat instead, join the [Shopify Partners Slack Community group](https://community.shopify.com/c/partners-and-developers/ct-p/appdev). This Slack group hosts an active community of thousands of app developers.
 
 By participating in the Community forum or Slack group, you agree to adhere to the forum [Code of Conduct](https://community.shopify.com/c/Announcements/Code-of-Conduct/m-p/491969#M23) outlined.
 
@@ -61,7 +61,7 @@ If you have a suggestion for the Shopify App gem or a feature request, provide t
 
 The process described here has several goals:
 
-* Maintain the Shopify App gem's quality
+* Maintain the Shopify App gem's quality (does the change you're making have a test?)
 * Fix problems that are important to app developers
 * Enable a sustainable system for the Shopify App gem's maintainers to review contributions
 
@@ -74,8 +74,18 @@ Please follow these steps to have your contribution considered by the maintainer
 
       While the prerequisites above must be satisfied prior to having your pull request reviewed, the reviewer(s) may ask you to complete additional design work, tests, or other changes before your pull request can be ultimately accepted.
     </details>
-    
-### App Bridge client
 
-This gem ships with a UMD version of the App Bridge client. It lives inside the assets folder: `app/assets/javascripts/shopify_app/`. To update the client, simply download the UMD build from [unpkg.com](https://unpkg.com/@shopify/app-bridge) and save it into the folder.
-Please follow the convention of including the client version number in the filename. Finally, change the reference to the new App Bridge client inside `app/assets/javascripts/shopify_app/app_bridge_redirect.js`.
+### Running tests
+
+#### Test Environment Requirements
+
+To run tests, you'll need to make sure that your development environment is setup correctly. You'll need:
+
+* Ruby 3+ is installed on your system
+* Install dependencies with `bundle install`
+
+#### Executing Tests
+
+* To run all tests: `bundle exec rake test`
+* To run a specific test file: `bundle exec rake test TEST=test/controllers/callback_controller_test.rb`
+* To run a single test: `bundle exec rake test TEST=test/controllers/callback_controller_test.rb:50` where `50` is the line number on or inside the test case.

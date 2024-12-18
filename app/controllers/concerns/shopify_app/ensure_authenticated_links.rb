@@ -14,21 +14,26 @@ module ShopifyApp
       splash_page_with_params(
         return_to: request.fullpath,
         shop: current_shopify_domain,
-        host: params[:host]
+        host: params[:host],
+        embedded: params[:embedded],
       )
     end
 
     def splash_page_with_params(params)
-      uri = URI(root_path)
+      uri = URI(base_url)
       uri.query = params.compact.to_query
       uri.to_s
     end
 
+    def base_url
+      ShopifyApp.configuration.root_url.presence || root_path
+    end
+
     def redirect_to_splash_page
       redirect_to(splash_page)
-    rescue ShopifyApp::LoginProtection::ShopifyDomainNotFound => error
-      Rails.logger.warn("[ShopifyApp::EnsureAuthenticatedLinks] Redirecting to login: [#{error.class}] "\
-        "Could not determine current shop domain")
+    rescue ::ShopifyApp::ShopifyDomainNotFound => error
+      ShopifyApp::Logger.warn("Redirecting to login: [#{error.class}]"\
+        " Could not determine current shop domain")
       redirect_to(ShopifyApp.configuration.login_url)
     end
 

@@ -11,8 +11,8 @@ jobs:
     steps:
     - name: Extract tag name
       id: tag
-      run: echo "::set-output name=value::${GITHUB_REF##*/}"
-    - uses: actions/checkout@v2
+      run: echo "value=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+    - uses: actions/checkout@v3
 
     - name: Create Release
       id: create_release

@@ -14,7 +14,7 @@ module ShopifyApp
     test ".retrieve can retrieve shop session records by ID" do
       ShopMockSessionStore.stubs(:find_by).returns(MockShopInstance.new(
         shopify_domain: TEST_SHOPIFY_DOMAIN,
-        shopify_token: TEST_SHOPIFY_TOKEN
+        shopify_token: TEST_SHOPIFY_TOKEN,
       ))
 
       session = ShopMockSessionStore.retrieve(1)
@@ -38,6 +38,12 @@ module ShopifyApp
       session = ShopMockSessionStore.retrieve_by_shopify_domain(shopify_domain)
       assert_equal expected_session.shop, session.shop
       assert_equal expected_session.access_token, session.access_token
+    end
+
+    test ".destroy_by_shopify_domain destroys shop session records by JWT" do
+      ShopMockSessionStore.expects(:destroy_by).with(shopify_domain: TEST_SHOPIFY_DOMAIN)
+
+      ShopMockSessionStore.destroy_by_shopify_domain(TEST_SHOPIFY_DOMAIN)
     end
 
     test ".store can store shop session records" do

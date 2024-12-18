@@ -2,22 +2,38 @@
 
 #### Table of contents
 
-[Manage webhooks using `ShopifyApp::WebhooksManager`](#manage-webhooks-using-shopifyappwebhooksmanager)
+[App-specific webhooks in shopify.app.toml (recommended)](#subscribing-to-webhooks-in-the-app-configuration-file)
+[Manage shop-specific webhooks using `ShopifyApp::WebhooksManager`](#manage-webhooks-using-shopifyappwebhooksmanager)
+[Mandatory Privacy Webhooks](#mandatory-privacy-webhooks)
 
-## Manage webhooks using `ShopifyApp::WebhooksManager`
+## App-specific webhooks in shopify.app.toml (recommended)
+You can specify app-specific webhooks to subscribe to in the `shopify.app.toml` file. These subscriptions are easier to manage because they are kept up to date by Shopify. In many cases they will be sufficient. Please read [app-specific vs shop-specific subscriptions](https://shopify.dev/docs/apps/build/webhooks/subscribe#app-specific-vs-shop-specific-subscriptions) to understand when you might need shop-specific webhooks.
 
-See [`ShopifyApp::WebhooksManager`](/lib/shopify_app/managers/webhooks_manager.rb)
-ShopifyApp can manage your app's webhooks for you if you set which webhooks you require in the initializer:
+### Consuming app-specific webhooks events
+To consume app-specific webhooks events from the `shopify.app.toml` file, you can scaffold the necessary files by running the following generator.
+
+```bash
+rails g shopify_app:add_declarative_webhook --topic carts/update --path webhooks/carts_update
+```
+
+This will add a new controller, job, and route to your application. The controller will verify the webhook and queue the job to process the webhook. The job will be responsible for processing the webhook data.
+
+## Manage shop-specific webhooks using `ShopifyApp::WebhooksManager`
+
+See [`ShopifyApp::WebhooksManager`](/lib/shopify_app/managers/webhooks_manager.rb).
+ShopifyApp can manage your app's shop-specific webhooks for you if you set which webhooks you require in the initializer:
 
 ```ruby
 ShopifyApp.configure do |config|
   config.webhooks = [
-    {topic: 'carts/update', address: 'https://example.com/webhooks/carts_update'}
+    {topic: 'carts/update', path: 'api/webhooks/carts_update'}
   ]
 end
 ```
 
-When the [OAuth callback](/docs/shopify_app/authentication.md#oauth-callback) is completed successfully, ShopifyApp will queue a background job which will ensure all the specified webhooks exist for that shop. Because this runs on every OAuth callback, it means your app will always have the webhooks it needs even if the user uninstalls and re-installs the app.
+This method should only be used if you have a good reason not to use app-specific webhooks (such as requiring different topics for different shops).
+
+When the [OAuth callback](/docs/shopify_app/authentication.md#oauth-callback) or token exchange is completed successfully, ShopifyApp will queue a background job which will ensure all the specified webhooks exist for that shop. Because this runs on every OAuth callback, it means your app will always have the webhooks it needs even if the user uninstalls and re-installs the app.
 
 ShopifyApp also provides a [WebhooksController](/app/controllers/shopify_app/webhooks_controller.rb) that receives webhooks and queues a job based on the received topic. For example, if you register the webhook from above, then all you need to do is create a job called `CartsUpdateJob`. The job will be queued with 2 params: `shop_domain` and `webhook` (which is the webhook body).
 
@@ -34,7 +50,35 @@ If you are only interested in particular fields, you can optionally filter the d
 ```ruby
 ShopifyApp.configure do |config|
   config.webhooks = [
-    {topic: 'products/update', address: 'https://example.com/webhooks/products_update', fields: ['title', 'vendor']}
+    {topic: 'products/update', path: 'api/webhooks/products_update', fields: ['title', 'vendor']}
+  ]
+end
+```
+
+If you need to read metafields, you can pass in the `metafield_namespaces` parameter in `config/webhooks`. Note if you are also using the `fields` parameter you will need to add `metafields` into that as well. Shopify documentation on metafields in webhooks can be found [here](https://shopify.dev/docs/api/admin-rest/2023-10/resources/webhook#resource-object).
+
+```ruby
+ShopifyApp.configure do |config|
+  config.webhooks = [
+    {
+      topic: 'orders/create',
+      path: 'api/webhooks/orders_create',
+      metafield_namespaces: ['app-namespace'],
+    },
+  ]
+end
+```
+
+If you need to filter by webhook fields, you can register a webhook with a `filter` parameter. The documentation for Webhook filters can be found [here](https://shopify.dev/docs/apps/build/webhooks/customize/filters).
+
+```ruby
+ShopifyApp.configure do |config|
+  config.webhooks = [
+    {
+      topic: 'products/update',
+      path: 'api/webhooks/products_update',
+      filter: "variants.price:>=10.00",
+    },
   ]
 end
 ```
@@ -66,7 +110,53 @@ The WebhooksManager uses ActiveJob. If ActiveJob is not configured then by defau
 ShopifyApp can create webhooks for you using the `add_webhook` generator. This will add the new webhook to your config and create the required job class for you.
 
 ```
-rails g shopify_app:add_webhook -t carts/update -a /webhooks/carts_update
+rails g shopify_app:add_webhook --topic carts/update --path webhooks/carts_update
 ```
 
-Where `-t` is the topic and `-a` is the address the webhook should be sent to.
+Where `--topic` is the topic and `--path` is the path the webhook should be sent to.
+
+## Mandatory Privacy Webhooks
+
+We have three mandatory privacy webhooks
+
+1. `customers/data_request`
+2. `customer/redact`
+3. `shop/redact`
+
+The `generate shopify_app` command generated three job templates corresponding to all three of these webhooks.
+To pass our approval process you will need to set these webhooks in your partner dashboard.
+You can read more about that [here](https://shopify.dev/apps/webhooks/configuration/mandatory-webhooks).
+
+## EventBridge and PubSub Webhooks
+
+You can also register webhooks for delivery to Amazon EventBridge or Google Cloud Pub/Sub. In this case the `path` argument to needs to be of a specific form.
+
+For EventBridge, the `path` must be the ARN of the partner event source.
+
+```rb
+ShopifyApp.configure do |config|
+  config.webhooks = [
+    {
+      delivery_method: :event_bridge,
+      topic: 'carts/update',
+      path: 'arn:aws:events....'
+    }
+  ]
+end
+```
+
+For Pub/Sub, the `path` must be of the form `pubsub://[PROJECT-ID]:[PUB-SUB-TOPIC-ID]`. For example, if you created a topic with id `red` in the project `blue`, then the value of path would be `pubsub://blue:red`.
+
+```rb
+ShopifyApp.configure do |config|
+  config.webhooks = [
+    {
+      delivery_method: :pub_sub,
+      topic: 'carts/update',
+      path: 'pubsub://project-id:pub-sub-topic-id'
+    }
+  ]
+end
+```
+
+When registering for an EventBridge or PubSub Webhook you'll need to implement a handler that will fetch webhooks from the queue and process them yourself.

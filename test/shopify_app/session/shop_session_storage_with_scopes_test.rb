@@ -16,7 +16,7 @@ module ShopifyApp
       ShopMockSessionStoreWithScopes.stubs(:find_by).returns(MockShopInstance.new(
         shopify_domain: TEST_SHOPIFY_DOMAIN,
         shopify_token: TEST_SHOPIFY_TOKEN,
-        scopes: TEST_MERCHANT_SCOPES
+        scopes: TEST_MERCHANT_SCOPES,
       ))
 
       session = ShopMockSessionStoreWithScopes.retrieve(1)
@@ -29,14 +29,14 @@ module ShopifyApp
       instance = MockShopInstance.new(
         shopify_domain: TEST_SHOPIFY_DOMAIN,
         shopify_token: TEST_SHOPIFY_TOKEN,
-        scopes: TEST_MERCHANT_SCOPES
+        scopes: TEST_MERCHANT_SCOPES,
       )
       ShopMockSessionStoreWithScopes.stubs(:find_by).with(shopify_domain: TEST_SHOPIFY_DOMAIN).returns(instance)
 
       expected_session = ShopifyAPI::Auth::Session.new(
         shop: instance.shopify_domain,
         access_token: instance.shopify_token,
-        scope: instance.access_scopes
+        scope: instance.access_scopes,
       )
       shopify_domain = TEST_SHOPIFY_DOMAIN
 
@@ -44,6 +44,12 @@ module ShopifyApp
       assert_equal expected_session.shop, session.shop
       assert_equal expected_session.access_token, session.access_token
       assert_equal expected_session.scope, session.scope
+    end
+
+    test ".destroy_by_shopify_domain destroys shop session records by JWT" do
+      ShopMockSessionStoreWithScopes.expects(:destroy_by).with(shopify_domain: TEST_SHOPIFY_DOMAIN)
+
+      ShopMockSessionStoreWithScopes.destroy_by_shopify_domain(TEST_SHOPIFY_DOMAIN)
     end
 
     test ".store can store shop session records" do
@@ -80,7 +86,7 @@ module ShopifyApp
     test ".retrieve throws NotImplementedError when access_scopes getter is not implemented" do
       mock_shop = MockShopInstance.new(
         shopify_domain: TEST_SHOPIFY_DOMAIN,
-        shopify_token: TEST_SHOPIFY_TOKEN
+        shopify_token: TEST_SHOPIFY_TOKEN,
       )
       mock_shop.stubs(:access_scopes).raises(NotImplementedError)
       ShopMockSessionStoreWithScopes.stubs(:find_by).returns(mock_shop)

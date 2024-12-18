@@ -5,8 +5,9 @@ module ShopifyApp
     private
 
     def args_info(job)
-      log_disabled_classes = ["ShopifyApp::ScripttagsManagerJob", "ShopifyApp::WebhooksManagerJob"]
+      log_disabled_classes = ["ShopifyApp::WebhooksManagerJob"]
       return "" if log_disabled_classes.include?(job.class.name)
+
       super
     end
   end
@@ -15,21 +16,20 @@ module ShopifyApp
     engine_name "shopify_app"
     isolate_namespace ShopifyApp
 
-    initializer "shopify_app.assets.precompile" do |app|
-      app.config.assets.precompile += ["shopify_app/redirect.js", "shopify_app/post_redirect.js",
-                                       "shopify_app/top_level.js", "shopify_app/enable_cookies.js",
-                                       "shopify_app/request_storage_access.js", "storage_access.svg",]
-    end
-
     initializer "shopify_app.middleware" do |app|
       app.config.middleware.insert_after(::Rack::Runtime, ShopifyApp::JWTMiddleware)
+    end
+
+    initializer "shopify_app.assets.precompile" do |app|
+      app.config.assets.precompile += [
+        "shopify_app/redirect.js",
+      ]
     end
 
     initializer "shopify_app.redact_job_params" do
       ActiveSupport.on_load(:active_job) do
         if ActiveJob::Base.respond_to?(:log_arguments?)
           WebhooksManagerJob.log_arguments = false
-          ScripttagsManagerJob.log_arguments = false
         elsif ActiveJob::Logging::LogSubscriber.private_method_defined?(:args_info)
           ActiveJob::Logging::LogSubscriber.prepend(RedactJobParams)
         end

@@ -1,6 +1,3 @@
-//= require ./app_bridge_redirect.js
-//= require ./app_bridge_utils_3.1.1.js
-
 (function () {
   function redirect() {
     var redirectTargetElement = document.getElementById("redirection-target");
@@ -10,14 +7,10 @@
     }
 
     var targetInfo = JSON.parse(redirectTargetElement.dataset.target);
+    var normalizedLink = document.createElement('a');
+    normalizedLink.href = targetInfo.url;
 
-    var appBridgeUtils = window['app-bridge-utils'];
-
-    if (appBridgeUtils.isShopifyEmbedded()) {
-      window.appBridgeRedirect(targetInfo.url);
-    } else {
-      window.top.location.href = targetInfo.url;
-    }
+    open(normalizedLink.href, '_top');
   }
 
   document.addEventListener("DOMContentLoaded", redirect);
