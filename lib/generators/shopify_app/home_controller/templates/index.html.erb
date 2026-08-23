@@ -31,11 +31,8 @@
                 var products = data.products;
                 var container = document.getElementById("products");
 
-                container.replaceChildren();
-
                 if (products === undefined || products.length == 0) {
-                  container.appendChild(document.createElement("br"));
-                  container.appendChild(document.createTextNode("No products to display."));
+                  container.replaceChildren(document.createElement("br"), "No products to display.");
                 } else {
                   var list = document.createElement("ul");
                   products.forEach((product) => {
@@ -48,7 +45,7 @@
                     item.appendChild(link);
                     list.appendChild(item);
                   });
-                  container.appendChild(list);
+                  container.replaceChildren(list);
                 }
               });
           }();
