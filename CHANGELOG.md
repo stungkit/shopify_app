@@ -1,5 +1,6 @@
 Unreleased
 ----------
+- Render product titles as text in the generated embedded home page view instead of assigning them to `innerHTML`, preventing stored XSS from merchant-controlled product titles.
 
 23.0.3 (June 24, 2026)
 ----------

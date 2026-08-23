@@ -34,6 +34,15 @@ class HomeControllerGeneratorTest < Rails::Generators::TestCase
     assert_file "app/views/home/index.html.erb"
   end
 
+  test "creates the embedded home index view which renders product titles as text, not markup" do
+    run_generator
+
+    assert_file "app/views/home/index.html.erb" do |file|
+      assert_match "link.textContent = product.title", file
+      refute_match(/innerHTML/, file)
+    end
+  end
+
   test "creates authenticated home controller with home index view given --embedded false option" do
     ShopifyApp.configuration.embedded_app = nil
     run_generator ["--embedded", "false"]
