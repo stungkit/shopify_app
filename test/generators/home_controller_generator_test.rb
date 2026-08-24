@@ -31,7 +31,10 @@ class HomeControllerGeneratorTest < Rails::Generators::TestCase
       assert_match "include ShopifyApp::EnsureInstalled", file
       assert_match "safe_embedded_app_url", file
     end
-    assert_file "app/views/home/index.html.erb"
+    assert_file "app/views/home/index.html.erb" do |file|
+      # Merchant-controlled product titles must reach the DOM as text, never through an HTML-parsing sink
+      refute_match(/innerHTML|outerHTML|insertAdjacentHTML|document\.write/, file)
+    end
   end
 
   test "creates authenticated home controller with home index view given --embedded false option" do
